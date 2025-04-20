@@ -151,6 +151,32 @@ class RiskScorer:
         
         return coverage[['file_path', 'coverage_score']]
 
+    def calculate_authorship_churn_score(self) -> pd.DataFrame:
+        """
+        Calculate authorship churn score based on number of authors and contribution distribution.
+        
+        Returns:
+            pd.DataFrame: DataFrame with authorship churn scores
+        """
+        authorship = self.git_metrics['authorship_churn']
+        if authorship.empty:
+            return pd.DataFrame()
+        
+        # Calculate score based on number of authors (fewer authors = higher risk)
+        authorship['num_authors_score'] = self._normalize_metric(
+            authorship, 'num_authors'
+        )
+        
+        # Calculate score based on top two authors contribution (higher concentration = higher risk)
+        authorship['concentration_score'] = self._normalize_metric(
+            authorship, 'top_two_authors_contribution'
+        )
+        
+        # Combine scores (equal weight for now)
+        authorship['authorship_score'] = (authorship['num_authors_score'] + authorship['concentration_score']) / 2
+        
+        return authorship[['file_path', 'authorship_score']]
+
     def calculate_risk_score(self, weights: Optional[Dict[str, float]] = None) -> pd.DataFrame:
         """
         Calculate overall risk score by combining all metrics.
@@ -177,7 +203,8 @@ class RiskScorer:
             self.calculate_change_frequency_score(),
             self.calculate_complexity_score(),
             self.calculate_maintainability_score(),
-            self.calculate_coverage_score()
+            self.calculate_coverage_score(),
+            self.calculate_authorship_churn_score()
         ]
         
         # Merge all scores on file_path
@@ -218,6 +245,10 @@ class RiskScorer:
         if 'coverage_score' in risk_df.columns:
             risk_score += weights['coverage'] * (1 - risk_df['coverage_score'])
             total_weight += weights['coverage']
+            
+        if 'authorship_score' in risk_df.columns:
+            risk_score += weights.get('authorship', 0.1) * risk_df['authorship_score']
+            total_weight += weights.get('authorship', 0.1)
         
         # Normalize by total weight used
         if total_weight > 0:

@@ -62,22 +62,25 @@ def main():
     complexity_weight = st.sidebar.slider("Complexity weight", 0.0, 1.0, 0.3)
     maintainability_weight = st.sidebar.slider("Maintainability weight", 0.0, 1.0, 0.2)
     coverage_weight = st.sidebar.slider("Coverage weight", 0.0, 1.0, 0.1)
+    authorship_weight = st.sidebar.slider("Authorship churn weight", 0.0, 1.0, 0.1)
     
     # Normalize weights
-    total_weight = aging_weight + frequency_weight + complexity_weight + maintainability_weight + coverage_weight
+    total_weight = aging_weight + frequency_weight + complexity_weight + maintainability_weight + coverage_weight + authorship_weight
     if total_weight > 0:
         aging_weight /= total_weight
         frequency_weight /= total_weight
         complexity_weight /= total_weight
         maintainability_weight /= total_weight
         coverage_weight /= total_weight
+        authorship_weight /= total_weight
     
     weights = {
         'aging': aging_weight,
         'frequency': frequency_weight,
         'complexity': complexity_weight,
         'maintainability': maintainability_weight,
-        'coverage': coverage_weight
+        'coverage': coverage_weight,
+        'authorship': authorship_weight
     }
     
     # Run analysis

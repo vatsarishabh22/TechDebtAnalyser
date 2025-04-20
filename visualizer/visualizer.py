@@ -123,6 +123,92 @@ class Visualizer:
         )
         st.plotly_chart(fig)
 
+    def show_file_aging(self):
+        """Display file aging metrics."""
+        last_modified = self.git_metrics['last_modified']
+        if last_modified.empty:
+            st.warning("No file aging metrics available to display.")
+            return
+        
+        # Convert to datetime if not already
+        last_modified['last_modified'] = pd.to_datetime(last_modified['last_modified'], utc=True)
+        
+        # Calculate age in days
+        now = pd.Timestamp.now(tz='UTC')
+        last_modified['age_days'] = (now - last_modified['last_modified']).dt.total_seconds() / (24 * 3600)
+        
+        # Create two columns for different views
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Bar chart of file ages
+            fig = px.bar(
+                last_modified,
+                x='file_path',
+                y='age_days',
+                title='File Age in Days',
+                labels={
+                    'file_path': 'File',
+                    'age_days': 'Age (days)'
+                }
+            )
+            st.plotly_chart(fig)
+        
+        with col2:
+            # Heatmap of modification dates
+            last_modified['month'] = last_modified['last_modified'].dt.strftime('%Y-%m')
+            monthly_counts = last_modified.groupby('month').size().reset_index(name='count')
+            
+            fig = px.bar(
+                monthly_counts,
+                x='month',
+                y='count',
+                title='File Modifications by Month',
+                labels={
+                    'month': 'Month',
+                    'count': 'Number of Files Modified'
+                }
+            )
+            st.plotly_chart(fig)
+
+    def show_authorship_churn(self):
+        """Display authorship churn metrics."""
+        authorship = self.git_metrics['authorship_churn']
+        if authorship.empty:
+            st.warning("No authorship churn metrics available to display.")
+            return
+        
+        # Create two columns for the metrics
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Number of authors per file
+            fig = px.bar(
+                authorship,
+                x='file_path',
+                y='num_authors',
+                title='Number of Authors per File',
+                labels={
+                    'file_path': 'File',
+                    'num_authors': 'Number of Authors'
+                }
+            )
+            st.plotly_chart(fig)
+        
+        with col2:
+            # Top two authors contribution
+            fig = px.bar(
+                authorship,
+                x='file_path',
+                y='top_two_authors_contribution',
+                title='Top Two Authors Contribution',
+                labels={
+                    'file_path': 'File',
+                    'top_two_authors_contribution': 'Contribution Percentage'
+                }
+            )
+            st.plotly_chart(fig)
+
     def show_dashboard(self):
         """Display the complete dashboard with all visualizations."""
         st.title('Technical Debt Analysis Dashboard')
@@ -146,6 +232,14 @@ class Visualizer:
         # Change History
         st.header('Change History')
         self.show_change_frequency()
+        
+        # File Aging
+        st.header('File Aging')
+        self.show_file_aging()
+        
+        # Authorship Analysis
+        st.header('Authorship Analysis')
+        self.show_authorship_churn()
         
         # Detailed Metrics
         st.header('Detailed Metrics')
