@@ -3,6 +3,9 @@ from pathlib import Path
 import base64
 from PIL import Image
 import io
+import tempfile
+import shutil
+from git import Repo
 
 from git_analyzer import GitActivityAnalyzer
 from static_analyzer import StaticCodeAnalyzer
@@ -72,7 +75,7 @@ def main():
     load_logo()
     st.title("Technical Debt Analyzer")
     st.markdown("""
-    <div style='text-align: center; color: #666; margin-bottom: 2rem;'>
+    <div style='text-align: left; color: #666; margin-bottom: 2rem;'>
         Analyze and visualize technical debt in your Python projects
     </div>
     """, unsafe_allow_html=True)
@@ -88,22 +91,45 @@ def main():
             <p>Enter your repository path to begin analysis</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Get repository path
-        repo_path = st.text_input(
-            "Repository Path:",
-            placeholder="/path/to/your/repository",
-            key="repo_path"
-        )
-        
-        if not repo_path:
-            st.warning("Please enter a repository path")
-            return
-        
-        repo_path = Path(repo_path)
-        if not repo_path.exists():
-            st.error(f"Repository path does not exist: {repo_path}")
-            return
+
+        analysis_mode = st.radio("Select input mode:", ["Local Repository", "Public GitHub URL"], horizontal=True)
+
+        if analysis_mode == "Local Repository":
+            repo_path_input = st.text_input(
+                "Repository Path:",
+                placeholder="/path/to/your/repository",
+                key="repo_path"
+            )
+            if not repo_path_input:
+                st.warning("Please enter a repository path")
+                return
+
+            repo_path = Path(repo_path_input)
+            if not repo_path.exists():
+                st.error(f"Repository path does not exist: {repo_path}")
+                return
+
+        else:
+            github_url = st.text_input(
+                "GitHub Repository URL:",
+                placeholder="https://github.com/username/repository",
+                key="github_url"
+            )
+            if not github_url:
+                st.warning("Please enter a GitHub repository URL")
+                return
+
+            # Clone into temp directory
+            temp_dir = tempfile.mkdtemp()
+            try:
+                with st.spinner("Cloning repository..."):
+                    Repo.clone_from(github_url, temp_dir)
+                    repo_path = Path(temp_dir)
+            except Exception as e:
+                st.error(f"Error cloning repository: {str(e)}")
+                shutil.rmtree(temp_dir)
+                return
+
     
     with col2:
         st.markdown("""
@@ -216,6 +242,9 @@ def main():
             options=["csv", "json"],
             index=0
         )
+
+        if analysis_mode == "Public GitHub URL":
+            shutil.rmtree(temp_dir)
         
         # Create a container for the export button
         export_container = st.sidebar.container()
