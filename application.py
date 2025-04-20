@@ -1,5 +1,8 @@
 import streamlit as st
 from pathlib import Path
+import base64
+from PIL import Image
+import io
 
 from git_analyzer import GitActivityAnalyzer
 from static_analyzer import StaticCodeAnalyzer
@@ -7,62 +10,136 @@ from risk_scorer import RiskScorer
 from visualizer import Visualizer
 
 
+def load_logo():
+    """Load and display the logo if it exists."""
+    logo_path = Path("static/images/logo.png")
+    if logo_path.exists():
+        image = Image.open(logo_path)
+        st.image(image, width=200)
+    else:
+        st.markdown("""
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <h1>🔍</h1>
+        </div>
+        """, unsafe_allow_html=True)
+
+
 def main():
     st.set_page_config(
         page_title="Technical Debt Analyzer",
         page_icon="🔍",
-        layout="wide"
+        layout="wide",
+        initial_sidebar_state="expanded"
     )
+    
+    # Custom CSS for better styling
+    st.markdown("""
+    <style>
+    .main {
+        padding: 2rem;
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 5px;
+        height: 3em;
+        font-size: 1.1em;
+    }
+    .stTextInput>div>div>input {
+        border-radius: 5px;
+    }
+    .sidebar .sidebar-content {
+        background-color: #f0f2f6;
+    }
+    .metric-box {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+    }
+    .header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Initialize session state
     if 'analysis_results' not in st.session_state:
         st.session_state.analysis_results = None
     
+    # Header with logo
+    st.markdown('<div class="header">', unsafe_allow_html=True)
+    load_logo()
     st.title("Technical Debt Analyzer")
-    st.write("Analyze technical debt in your Python projects")
+    st.markdown("""
+    <div style='text-align: center; color: #666; margin-bottom: 2rem;'>
+        Analyze and visualize technical debt in your Python projects
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Get repository path
-    repo_path = st.text_input(
-        "Enter the path to your Git repository:",
-        placeholder="/path/to/your/repository"
-    )
+    # Main content in two columns
+    col1, col2 = st.columns([2, 1])
     
-    if not repo_path:
-        st.warning("Please enter a repository path")
-        return
+    with col1:
+        st.markdown("""
+        <div class="metric-box">
+            <h3>🔍 Repository Analysis</h3>
+            <p>Enter your repository path to begin analysis</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Get repository path
+        repo_path = st.text_input(
+            "Repository Path:",
+            placeholder="/path/to/your/repository",
+            key="repo_path"
+        )
+        
+        if not repo_path:
+            st.warning("Please enter a repository path")
+            return
+        
+        repo_path = Path(repo_path)
+        if not repo_path.exists():
+            st.error(f"Repository path does not exist: {repo_path}")
+            return
     
-    repo_path = Path(repo_path)
-    if not repo_path.exists():
-        st.error(f"Repository path does not exist: {repo_path}")
-        return
-    
-    # Analysis options
-    st.sidebar.header("Analysis Options")
-    
-    # Git analysis options
-    st.sidebar.subheader("Git Analysis")
-    time_window = st.sidebar.selectbox(
-        "Change frequency time window",
-        options=["7D", "30D", "90D", "180D"],
-        index=1
-    )
-    
-    # Static analysis options
-    st.sidebar.subheader("Static Analysis")
-    analyze_complexity = st.sidebar.checkbox("Analyze complexity", value=True)
-    analyze_maintainability = st.sidebar.checkbox("Analyze maintainability", value=True)
-    analyze_dead_code = st.sidebar.checkbox("Analyze dead code", value=True)
-    analyze_code_smells = st.sidebar.checkbox("Analyze code smells", value=True)
-    analyze_coverage = st.sidebar.checkbox("Analyze test coverage", value=True)
-    
-    # Risk scoring options
-    st.sidebar.subheader("Risk Scoring")
-    aging_weight = st.sidebar.slider("Aging weight", 0.0, 1.0, 0.2)
-    frequency_weight = st.sidebar.slider("Change frequency weight", 0.0, 1.0, 0.2)
-    complexity_weight = st.sidebar.slider("Complexity weight", 0.0, 1.0, 0.3)
-    maintainability_weight = st.sidebar.slider("Maintainability weight", 0.0, 1.0, 0.2)
-    coverage_weight = st.sidebar.slider("Coverage weight", 0.0, 1.0, 0.1)
-    authorship_weight = st.sidebar.slider("Authorship churn weight", 0.0, 1.0, 0.1)
+    with col2:
+        st.markdown("""
+        <div class="metric-box">
+            <h3>⚙️ Analysis Options</h3>
+            <p>Configure your analysis settings</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Analysis options
+        st.sidebar.header("Analysis Options")
+        
+        # Git analysis options
+        st.sidebar.subheader("Git Analysis")
+        time_window = st.sidebar.selectbox(
+            "Change frequency time window",
+            options=["7D", "30D", "90D", "180D"],
+            index=1
+        )
+        
+        # Static analysis options
+        st.sidebar.subheader("Static Analysis")
+        analyze_complexity = st.sidebar.checkbox("Analyze complexity", value=True)
+        analyze_maintainability = st.sidebar.checkbox("Analyze maintainability", value=True)
+        analyze_dead_code = st.sidebar.checkbox("Analyze dead code", value=True)
+        analyze_code_smells = st.sidebar.checkbox("Analyze code smells", value=True)
+        analyze_coverage = st.sidebar.checkbox("Analyze test coverage", value=True)
+        
+        # Risk scoring options
+        st.sidebar.subheader("Risk Scoring")
+        aging_weight = st.sidebar.slider("Aging weight", 0.0, 1.0, 0.2)
+        frequency_weight = st.sidebar.slider("Change frequency weight", 0.0, 1.0, 0.2)
+        complexity_weight = st.sidebar.slider("Complexity weight", 0.0, 1.0, 0.3)
+        maintainability_weight = st.sidebar.slider("Maintainability weight", 0.0, 1.0, 0.2)
+        coverage_weight = st.sidebar.slider("Coverage weight", 0.0, 1.0, 0.1)
+        authorship_weight = st.sidebar.slider("Authorship churn weight", 0.0, 1.0, 0.1)
     
     # Normalize weights
     total_weight = aging_weight + frequency_weight + complexity_weight + maintainability_weight + coverage_weight + authorship_weight
@@ -83,8 +160,8 @@ def main():
         'authorship': authorship_weight
     }
     
-    # Run analysis
-    if st.button("Analyze"):
+    # Run analysis button
+    if st.button("🚀 Start Analysis", key="analyze_button"):
         with st.spinner("Analyzing repository..."):
             try:
                 # Git analysis
@@ -139,10 +216,29 @@ def main():
             options=["csv", "json"],
             index=0
         )
-        if st.sidebar.button("Export Report"):
+        
+        # Create a container for the export button
+        export_container = st.sidebar.container()
+        
+        if export_container.button("Export Report"):
             try:
-                visualizer.export_report(export_format)
-                st.sidebar.success(f"Report exported as {export_format.upper()}")
+                report_data = visualizer.export_report(export_format)
+                # Handle both string and bytes data types
+                if isinstance(report_data, bytes):
+                    data = report_data
+                else:
+                    data = report_data.encode()
+                
+                # Set correct MIME type
+                mime_type = "text/csv" if export_format == "csv" else "application/json"
+                
+                # Use Streamlit's native download button
+                export_container.download_button(
+                    label="Download Report",
+                    data=data,
+                    file_name=f"technical_debt_report.{export_format}",
+                    mime=mime_type
+                )
             except Exception as e:
                 st.sidebar.error(f"Error exporting report: {str(e)}")
 

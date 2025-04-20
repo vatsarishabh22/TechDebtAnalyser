@@ -7,6 +7,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import json
 
 
 class Visualizer:
@@ -252,13 +253,13 @@ class Visualizer:
         
         Args:
             format (str): Export format ('html', 'csv', or 'json')
+            
+        Returns:
+            bytes: The report data in the specified format
         """
-        if format == 'html':
-            # Create HTML report with all visualizations
-            pass  # Implement HTML export
-        elif format == 'csv':
+        if format == 'csv':
             # Export risk scores as CSV
-            self.risk_scores.to_csv('technical_debt_report.csv', index=False)
+            return self.risk_scores.to_csv(index=False).encode()
         elif format == 'json':
             # Export all metrics as JSON
             report = {
@@ -266,6 +267,6 @@ class Visualizer:
                 'git_metrics': {k: v.to_dict() for k, v in self.git_metrics.items()},
                 'static_metrics': {k: v.to_dict() for k, v in self.static_metrics.items()}
             }
-            import json
-            with open('technical_debt_report.json', 'w') as f:
-                json.dump(report, f) 
+            return json.dumps(report).encode()
+        else:
+            raise ValueError(f"Unsupported export format: {format}") 
